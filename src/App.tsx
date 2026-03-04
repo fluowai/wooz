@@ -20,8 +20,12 @@ import {
   Phone,
   MapPin,
   Instagram,
-  Linkedin
+  Linkedin,
+  MessageSquare,
+  Send,
+  Bot
 } from 'lucide-react';
+import { GoogleGenAI } from "@google/genai";
 
 // --- Components ---
 
@@ -536,6 +540,149 @@ const Footer = () => {
   );
 };
 
+const Chatbot = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState<{ role: 'user' | 'bot', text: string }[]>([
+    { role: 'bot', text: 'Olá! Sou o assistente virtual da Wooz. Como posso ajudar você a escalar seu negócio hoje?' }
+  ]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage = input.trim();
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
+    setIsLoading(true);
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: userMessage,
+        config: {
+          systemInstruction: `Você é o assistente virtual da Wooz, uma empresa especializada em processos comerciais e presença digital. 
+          Seu objetivo é responder dúvidas de potenciais clientes de forma profissional, elegante e persuasiva.
+          
+          Informações sobre a Wooz:
+          - Serviços Principais: Processos Comerciais (CRM, treinamento de vendas, playbooks) e Presença Digital (Websites de alta conversão, Branding, Tráfego Pago).
+          - Diferenciais: Foco em ROI, metodologia própria validada, time de elite.
+          - Cases: TechFlow Solutions (SaaS B2B, +210% MQLs) e Nexus Invest (Fintech, +150% usuários).
+          - Localização: São Paulo, SP.
+          - Tom de voz: Profissional, sofisticado (Dark Luxury), direto ao ponto e focado em resultados.
+          
+          Responda sempre em Português do Brasil. Se não souber algo, peça para o usuário entrar em contato pelo formulário do site ou pelo WhatsApp +55 (11) 99999-9999.`,
+        },
+      });
+
+      const botText = response.text || "Desculpe, tive um problema ao processar sua solicitação. Poderia repetir?";
+      setMessages(prev => [...prev, { role: 'bot', text: botText }]);
+    } catch (error) {
+      console.error("Chatbot Error:", error);
+      setMessages(prev => [...prev, { role: 'bot', text: "No momento estou passando por uma manutenção rápida. Você pode falar conosco pelo formulário de contato abaixo!" }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed bottom-6 right-6 z-[100]">
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="absolute bottom-20 right-0 w-[350px] sm:w-[400px] h-[500px] glass rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-gold-500/20"
+          >
+            {/* Header */}
+            <div className="bg-gold-500 p-4 flex items-center justify-between text-black">
+              <div className="flex items-center gap-3">
+                <Logo className="scale-75 origin-left" />
+              </div>
+              <button onClick={() => setIsOpen(false)} className="hover:bg-black/10 p-1 rounded-full transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-black/40">
+              {messages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${
+                    msg.role === 'user' 
+                      ? 'bg-gold-500 text-black rounded-tr-none' 
+                      : 'bg-white/10 text-white border border-white/10 rounded-tl-none'
+                  }`}>
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-white/10 p-3 rounded-2xl rounded-tl-none flex gap-1">
+                    <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-gold-500 rounded-full" />
+                    <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-gold-500 rounded-full" />
+                    <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-gold-500 rounded-full" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Input */}
+            <div className="p-4 bg-black/60 border-t border-white/10">
+              <form 
+                onSubmit={(e) => { e.preventDefault(); handleSend(); }}
+                className="flex gap-2"
+              >
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Digite sua dúvida..."
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm focus:border-gold-500 outline-none transition-colors"
+                />
+                <button 
+                  type="submit"
+                  disabled={isLoading}
+                  className="gold-gradient p-2 rounded-xl text-black hover:scale-105 transition-transform disabled:opacity-50"
+                >
+                  <Send size={18} />
+                </button>
+              </form>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-14 h-14 gold-gradient rounded-full shadow-2xl flex items-center justify-center text-black group relative"
+      >
+        <AnimatePresence mode="wait">
+          {isOpen ? (
+            <motion.div key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }}>
+              <X size={24} />
+            </motion.div>
+          ) : (
+            <motion.div key="chat" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }}>
+              <MessageSquare size={24} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {!isOpen && (
+          <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-[10px] font-bold text-white flex items-center justify-center rounded-full border-2 border-black">
+            1
+          </span>
+        )}
+      </motion.button>
+    </div>
+  );
+};
+
 export default function App() {
   return (
     <div className="font-sans selection:bg-gold-500/30 selection:text-white">
@@ -546,6 +693,7 @@ export default function App() {
       <About />
       <Contact />
       <Footer />
+      <Chatbot />
     </div>
   );
 }
